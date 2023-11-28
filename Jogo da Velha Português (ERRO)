@@ -1,0 +1,224 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
+const (
+	tamanhoTabuleiro    = 3
+	tamanhoSubTabuleiro = 3
+	coringa             = -1
+	celulaVazia         = 0
+	jogadorX            = 1
+	jogadorO            = 2
+	celulaCentral       = tamanhoSubTabuleiro/2 + 1
+	subTabuleiroCentral = tamanhoTabuleiro/2 + 1
+)
+
+type Jogo struct {
+	tabuleiro    [tamanhoTabuleiro][tamanhoTabuleiro][tamanhoSubTabuleiro][tamanhoSubTabuleiro]int
+	jogadorAtual int
+}
+
+func NovoJogo() *Jogo {
+	rand.Seed(time.Now().UnixNano())
+	return &Jogo{
+		jogadorAtual: rand.Intn(2) + 1,
+	}
+}
+
+func (j *Jogo) exibirTabuleiro() {
+	for i := 0; i < tamanhoTabuleiro; i++ {
+		for j := 0; j < tamanhoTabuleiro; j++ {
+			fmt.Print("|")
+			for k := 0; k < tamanhoSubTabuleiro; k++ {
+				for l := 0; l < tamanhoSubTabuleiro; l++ {
+					celula := j.tabuleiro[i][j][k][l]
+					if celula == coringa {
+						fmt.Print(" * ")
+					} else if celula == celulaVazia {
+						fmt.Print("   ")
+					} else {
+						fmt.Printf(" %c ", "XO"[celula-1])
+					}
+					fmt.Print("|")
+				}
+				fmt.Print(" ")
+			}
+			fmt.Println()
+		}
+		fmt.Println()
+	}
+}
+
+func (j *Jogo) jogadaValida(tabuleiroX, tabuleiroY, celulaX, celulaY int) bool {
+	if j.tabuleiro[tabuleiroX][tabuleiroY][celulaX][celulaY] == celulaVazia {
+		if tabuleiroX == subTabuleiroCentral-1 && tabuleiroY == subTabuleiroCentral-1 {
+			return true // Qualquer jogada é válida no sub-tabuleiro central
+		} else if tabuleiroX == j.obterUltimoTabuleiroX() && tabuleiroY == j.obterUltimoTabuleiroY() {
+			return true // A jogada deve estar no sub-tabuleiro correspondente
+		}
+	}
+	return false
+}
+
+func (j *Jogo) fazerJogada(tabuleiroX, tabuleiroY, celulaX, celulaY int) {
+	j.tabuleiro[tabuleiroX][tabuleiroY][celulaX][celulaY] = j.jogadorAtual
+
+	if j.subTabuleiroVencido(tabuleiroX, tabuleiroY) {
+		fmt.Printf("Jogador %c venceu o sub-tabuleiro!\n", "XO"[j.jogadorAtual-1])
+		j.tabuleiro[tabuleiroX][tabuleiroY] = [tamanhoSubTabuleiro][tamanhoSubTabuleiro]int{} // Reiniciar o sub-tabuleiro
+	}
+
+	if j.subTabuleiroCheio(tabuleiroX, tabuleiroY) {
+		fmt.Printf("Sub-tabuleiro em (%d, %d) está cheio. Pode ser usado como coringa.\n", tabuleiroX, tabuleiroY)
+		j.tabuleiro[tabuleiroX][tabuleiroY] = [tamanhoSubTabuleiro][tamanhoSubTabuleiro]int{{coringa, coringa, coringa}, {coringa, coringa, coringa}, {coringa, coringa, coringa}}
+	}
+
+	j.trocarJogador()
+}
+
+func (j *Jogo) trocarJogador() {
+	if j.jogadorAtual == jogadorX {
+		j.jogadorAtual = jogadorO
+	} else {
+		j.jogadorAtual = jogadorX
+	}
+}
+
+func (j *Jogo) obterUltimoTabuleiroX() int {
+	for i := 0; i < tamanhoTabuleiro; i++ {
+		for j := 0; j < tamanhoTabuleiro; j++ {
+			for k := 0; k < tamanhoSubTabuleiro; k++ {
+				for l := 0; l < tamanhoSubTabuleiro; l++ {
+					if j.tabuleiro[i][j][k][l] == j.jogadorAtual {
+						return i
+					}
+				}
+			}
+		}
+	}
+	return -1 // Não deveria chegar aqui
+}
+
+func (j *Jogo) obterUltimoTabuleiroY() int {
+	for i := 0; i < tamanhoTabuleiro; i++ {
+		for j := 0; j < tamanhoTabuleiro; j++ {
+			for k := 0; k < tamanhoSubTabuleiro; k++ {
+				for l := 0; l < tamanhoSubTabuleiro; l++ {
+					if j.tabuleiro[i][j][k][l] == j.jogadorAtual {
+						return j
+					}
+				}
+			}
+		}
+	}
+	return -1 // Não deveria chegar aqui
+}
+
+func (j *Jogo) subTabuleiroCheio(tabuleiroX, tabuleiroY int) bool {
+	for i := 0; i < tamanhoSubTabuleiro; i++ {
+		for j := 0; j < tamanhoSubTabuleiro; j++ {
+			if j.tabuleiro[tabuleiroX][tabuleiroY][i][j] == celulaVazia {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (j *Jogo) subTabuleiroVencido(tabuleiroX, tabuleiroY int) bool {
+	// Verificar linhas e colunas
+	for i := 0; i < tamanhoSubTabuleiro; i++ {
+		if j.tabuleiro[tabuleiroX][tabuleiroY][i][0] == j.jogadorAtual &&
+			j.tabuleiro[tabuleiroX][tabuleiroY][i][1] == j.jogadorAtual &&
+			j.tabuleiro[tabuleiroX][tabuleiroY][i][2] == j.jogadorAtual {
+			return true
+		}
+		if j.tabuleiro[tabuleiroX][tabuleiroY][0][i] == j.jogadorAtual &&
+			j.tabuleiro[tabuleiroX][tabuleiroY][1][i] == j.jogadorAtual &&
+			j.tabuleiro[tabuleiroX][tabuleiroY][2][i] == j.jogadorAtual {
+			return true
+		}
+	}
+
+	// Verificar diagonais
+	if j.tabuleiro[tabuleiroX][tabuleiroY][0][0] == j.jogadorAtual &&
+		j.tabuleiro[tabuleiroX][tabuleiroY][1][1] == j.jogadorAtual &&
+		j.tabuleiro[tabuleiroX][tabuleiroY][2][2] == j.jogadorAtual {
+		return true
+	}
+	if j.tabuleiro[tabuleiroX][tabuleiroY][0][2] == j.jogadorAtual &&
+		j.tabuleiro[tabuleiroX][tabuleiroY][1][1] == j.jogadorAtual &&
+		j.tabuleiro[tabuleiroX][tabuleiroY][2][0] == j.jogadorAtual {
+		return true
+	}
+
+	return false
+}
+
+func (j *Jogo) tabuleiroCheio() bool {
+	for i := 0; i < tamanhoTabuleiro; i++ {
+		for j := 0; j < tamanhoTabuleiro; j++ {
+			if !j.subTabuleiroCheio(i, j) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (j *Jogo) tabuleiroVencido() bool {
+	// Verificar linhas e colunas
+	for i := 0; i < tamanhoTabuleiro; i++ {
+		if j.subTabuleiroVencido(i, 0) && j.subTabuleiroVencido(i, 1) && j.subTabuleiroVencido(i, 2) {
+			return true
+		}
+		if j.subTabuleiroVencido(0, i) && j.subTabuleiroVencido(1, i) && j.subTabuleiroVencido(2, i) {
+			return true
+		}
+	}
+
+	// Verificar diagonais
+	if j.subTabuleiroVencido(0, 0) && j.subTabuleiroVencido(1, 1) && j.subTabuleiroVencido(2, 2) {
+		return true
+	}
+	if j.subTabuleiroVencido(0, 2) && j.subTabuleiroVencido(1, 1) && j.subTabuleiroVencido(2, 0) {
+		return true
+	}
+
+	return false
+}
+
+func (j *Jogo) jogar() {
+	for !j.tabuleiroCheio() && !j.tabuleiroVencido() {
+		j.exibirTabuleiro()
+		fmt.Printf("Vez do Jogador %c\n", "XO"[j.jogadorAtual-1])
+		fmt.Print("Digite a jogada (formato: tabuleiroX tabuleiroY celulaX celulaY): ")
+
+		var tabuleiroX, tabuleiroY, celulaX, celulaY int
+		fmt.Scan(&tabuleiroX, &tabuleiroY, &celulaX, &celulaY)
+
+		if j.jogadaValida(tabuleiroX, tabuleiroY, celulaX, celulaY) {
+			j.fazerJogada(tabuleiroX, tabuleiroY, celulaX, celulaY)
+		} else {
+			fmt.Println("Jogada inválida. Tente novamente.")
+		}
+	}
+
+	j.exibirTabuleiro()
+
+	if j.tabuleiroVencido() {
+		fmt.Printf("Jogador %c venceu o jogo!\n", "XO"[j.jogadorAtual-1])
+	} else {
+		fmt.Println("Empate! O jogo terminou sem vencedor.")
+	}
+}
+
+func main() {
+	jogo := NovoJogo()
+	jogo.jogar()
+}
+
