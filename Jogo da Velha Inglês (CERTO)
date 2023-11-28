@@ -1,0 +1,223 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
+const (
+	boardSize       = 3
+	subBoardSize    = 3
+	wildcard        = -1
+	emptyCell       = 0
+	playerX         = 1
+	playerO         = 2
+	centralCell     = subBoardSize/2 + 1
+	centralSubBoard = boardSize/2 + 1
+)
+
+type Game struct {
+	board         [boardSize][boardSize][subBoardSize][subBoardSize]int
+	currentPlayer int
+}
+
+func NewGame() *Game {
+	rand.Seed(time.Now().UnixNano())
+	return &Game{
+		currentPlayer: rand.Intn(2) + 1, // Randomly choose starting player (1 or 2)
+	}
+}
+
+func (g *Game) printBoard() {
+	for i := 0; i < boardSize; i++ {
+		for j := 0; j < boardSize; j++ {
+			fmt.Print("|")
+			for k := 0; k < subBoardSize; k++ {
+				for l := 0; l < subBoardSize; l++ {
+					cell := g.board[i][j][k][l]
+					if cell == wildcard {
+						fmt.Print(" * ")
+					} else if cell == emptyCell {
+						fmt.Print("   ")
+					} else {
+						fmt.Printf(" %c ", "XO"[cell-1])
+					}
+					fmt.Print("|")
+				}
+				fmt.Print(" ")
+			}
+			fmt.Println()
+		}
+		fmt.Println()
+	}
+}
+
+func (g *Game) isValidMove(boardX, boardY, cellX, cellY int) bool {
+	if g.board[boardX][boardY][cellX][cellY] == emptyCell {
+		if boardX == centralSubBoard-1 && boardY == centralSubBoard-1 {
+			return true // Any move is valid in the central sub-board
+		} else if boardX == g.getLastMoveBoardX() && boardY == g.getLastMoveBoardY() {
+			return true // Move must be in the corresponding sub-board
+		}
+	}
+	return false
+}
+
+func (g *Game) makeMove(boardX, boardY, cellX, cellY int) {
+	g.board[boardX][boardY][cellX][cellY] = g.currentPlayer
+	g.switchPlayer()
+}
+
+func (g *Game) switchPlayer() {
+	if g.currentPlayer == playerX {
+		g.currentPlayer = playerO
+	} else {
+		g.currentPlayer = playerX
+	}
+}
+
+func (g *Game) getLastMoveBoardX() int {
+	for i := 0; i < boardSize; i++ {
+		for j := 0; j < boardSize; j++ {
+			for k := 0; k < subBoardSize; k++ {
+				for l := 0; l < subBoardSize; l++ {
+					if g.board[i][j][k][l] == g.currentPlayer {
+						return i
+					}
+				}
+			}
+		}
+	}
+	return -1 // Should not reach here
+}
+
+func (g *Game) getLastMoveBoardY() int {
+	for i := 0; i < boardSize; i++ {
+		for j := 0; j < boardSize; j++ {
+			for k := 0; k < subBoardSize; k++ {
+				for l := 0; l < subBoardSize; l++ {
+					if g.board[i][j][k][l] == g.currentPlayer {
+						return j
+					}
+				}
+			}
+		}
+	}
+	return -1 // Should not reach here
+}
+
+func (g *Game) isSubBoardFull(boardX, boardY int) bool {
+	for i := 0; i < subBoardSize; i++ {
+		for j := 0; j < subBoardSize; j++ {
+			if g.board[boardX][boardY][i][j] == emptyCell {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (g *Game) isSubBoardWon(boardX, boardY int) bool {
+	// Check rows and columns
+	for i := 0; i < subBoardSize; i++ {
+		if g.board[boardX][boardY][i][0] == g.currentPlayer &&
+			g.board[boardX][boardY][i][1] == g.currentPlayer &&
+			g.board[boardX][boardY][i][2] == g.currentPlayer {
+			return true
+		}
+		if g.board[boardX][boardY][0][i] == g.currentPlayer &&
+			g.board[boardX][boardY][1][i] == g.currentPlayer &&
+			g.board[boardX][boardY][2][i] == g.currentPlayer {
+			return true
+		}
+	}
+
+	// Check diagonals
+	if g.board[boardX][boardY][0][0] == g.currentPlayer &&
+		g.board[boardX][boardY][1][1] == g.currentPlayer &&
+		g.board[boardX][boardY][2][2] == g.currentPlayer {
+		return true
+	}
+	if g.board[boardX][boardY][0][2] == g.currentPlayer &&
+		g.board[boardX][boardY][1][1] == g.currentPlayer &&
+		g.board[boardX][boardY][2][0] == g.currentPlayer {
+		return true
+	}
+
+	return false
+}
+
+func (g *Game) isBoardFull() bool {
+	for i := 0; i < boardSize; i++ {
+		for j := 0; j < boardSize; j++ {
+			if !g.isSubBoardFull(i, j) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (g *Game) isBoardWon() bool {
+	// Check rows and columns
+	for i := 0; i < boardSize; i++ {
+		if g.isSubBoardWon(i, 0) && g.isSubBoardWon(i, 1) && g.isSubBoardWon(i, 2) {
+			return true
+		}
+		if g.isSubBoardWon(0, i) && g.isSubBoardWon(1, i) && g.isSubBoardWon(2, i) {
+			return true
+		}
+	}
+
+	// Check diagonals
+	if g.isSubBoardWon(0, 0) && g.isSubBoardWon(1, 1) && g.isSubBoardWon(2, 2) {
+		return true
+	}
+	if g.isSubBoardWon(0, 2) && g.isSubBoardWon(1, 1) && g.isSubBoardWon(2, 0) {
+		return true
+	}
+
+	return false
+}
+
+func (g *Game) playGame() {
+	for !g.isBoardFull() && !g.isBoardWon() {
+		g.printBoard()
+		fmt.Printf("Player %c's turn\n", "XO"[g.currentPlayer-1])
+		fmt.Print("Enter move (format: boardX boardY cellX cellY): ")
+
+		var boardX, boardY, cellX, cellY int
+		fmt.Scan(&boardX, &boardY, &cellX, &cellY)
+
+		if g.isValidMove(boardX, boardY, cellX, cellY) {
+			g.makeMove(boardX, boardY, cellX, cellY)
+
+			if g.isSubBoardWon(boardX, boardY) {
+				fmt.Printf("Player %c won the sub-board!\n", "XO"[g.currentPlayer-1])
+				g.board[boardX][boardY] = [subBoardSize][subBoardSize]int{} // Reset the sub-board
+			}
+
+			if g.isSubBoardFull(boardX, boardY) {
+				fmt.Printf("Sub-board at (%d, %d) is full. It can be used as a wildcard.\n", boardX, boardY)
+				g.board[boardX][boardY] = [subBoardSize][subBoardSize]int{{wildcard, wildcard, wildcard}, {wildcard, wildcard, wildcard}, {wildcard, wildcard, wildcard}}
+			}
+
+		} else {
+			fmt.Println("Invalid move. Try again.")
+		}
+	}
+
+	g.printBoard()
+
+	if g.isBoardWon() {
+		fmt.Printf("Player %c won the game!\n", "XO"[g.currentPlayer-1])
+	} else {
+		fmt.Println("It's a draw!")
+	}
+}
+
+func main() {
+	game := NewGame()
+	game.playGame()
+}
